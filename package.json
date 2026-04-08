@@ -2,8 +2,12 @@
   "name": "yt-api",
   "version": "1.0.0",
   "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
   "dependencies": {
-    "yt-dlp-exec": "^2.0.5",
-    "axios": "^1.7.9"
+    "express": "^4.19.2",
+    "yt-dlp-exec": "^2.0.5"
   }
 }
