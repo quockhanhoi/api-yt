@@ -1,20 +1,14 @@
 import express from "express";
-import { exec } from "child_process";
+import YTDlpWrap from "yt-dlp-wrap";
+import fs from "fs";
+import path from "path";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// helper chạy yt-dlp
-function run(cmd) {
-    return new Promise((resolve, reject) => {
-        exec(cmd, (err, stdout, stderr) => {
-            if (err) return reject(stderr || err.message);
-            resolve(stdout);
-        });
-    });
-}
+// tạo yt-dlp instance (tự tải binary nếu chưa có)
+const ytDlp = new YTDlpWrap();
 
-// ================= MAIN =================
 app.get("/", async (req, res) => {
     const { type, q, url } = req.query;
 
@@ -24,7 +18,10 @@ app.get("/", async (req, res) => {
         if (type === "search") {
             if (!q) return res.status(400).json({ error: "missing q" });
 
-            const output = await run(`yt-dlp "ytsearch10:${q}" --dump-json`);
+            const output = await ytDlp.execPromise([
+                `ytsearch10:${q}`,
+                "--dump-json"
+            ]);
 
             const lines = output.trim().split("\n").filter(Boolean);
 
@@ -43,27 +40,15 @@ app.get("/", async (req, res) => {
             });
         }
 
-        // ================= MP3 =================
-        if (type === "mp3") {
-            if (!url) return res.status(400).json({ error: "missing url" });
-
-            const link = await run(`yt-dlp -f bestaudio -g "${url}"`);
-            return res.redirect(link.trim());
-        }
-
-        // ================= VIDEO =================
-        if (type === "video") {
-            if (!url) return res.status(400).json({ error: "missing url" });
-
-            const link = await run(`yt-dlp -f best -g "${url}"`);
-            return res.redirect(link.trim());
-        }
-
         // ================= INFO =================
         if (type === "info") {
             if (!url) return res.status(400).json({ error: "missing url" });
 
-            const output = await run(`yt-dlp --dump-json "${url}"`);
+            const output = await ytDlp.execPromise([
+                url,
+                "--dump-json"
+            ]);
+
             const data = JSON.parse(output);
 
             return res.json({
@@ -77,23 +62,52 @@ app.get("/", async (req, res) => {
             });
         }
 
+        // ================= MP3 (redirect stream) =================
+        if (type === "mp3") {
+            if (!url) return res.status(400).json({ error: "missing url" });
+
+            const link = await ytDlp.execPromise([
+                url,
+                "-f",
+                "bestaudio",
+                "-g"
+            ]);
+
+            return res.redirect(link.trim());
+        }
+
+        // ================= VIDEO =================
+        if (type === "video") {
+            if (!url) return res.status(400).json({ error: "missing url" });
+
+            const link = await ytDlp.execPromise([
+                url,
+                "-f",
+                "best",
+                "-g"
+            ]);
+
+            return res.redirect(link.trim());
+        }
+
+        // ================= DEFAULT =================
         return res.json({
-            error: "invalid type",
-            usage: {
+            status: "ok",
+            routes: {
                 search: "/?type=search&q=xxx",
+                info: "/?type=info&url=xxx",
                 mp3: "/?type=mp3&url=xxx",
-                video: "/?type=video&url=xxx",
-                info: "/?type=info&url=xxx"
+                video: "/?type=video&url=xxx"
             }
         });
 
     } catch (err) {
         return res.status(500).json({
-            error: err.toString()
+            error: err.message
         });
     }
 });
 
 app.listen(PORT, () => {
-    console.log("Server running on", PORT);
+    console.log("🚀 Server running on port", PORT);
 });
