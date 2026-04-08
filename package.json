@@ -1,0 +1,9 @@
+{
+  "name": "yt-api",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "yt-dlp-exec": "^2.0.5",
+    "axios": "^1.7.9"
+  }
+}
